@@ -1,4 +1,9 @@
 node_modules/
 .env
 .DS_Store
-*.log 
+*.log
+*.pkl
+venv/
+__pycache__/
+.docker/
+docker-compose.override.yml 

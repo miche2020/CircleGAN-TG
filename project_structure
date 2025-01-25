@@ -1,0 +1,9 @@
+project/
+├── utils/
+│   ├── __init__.py
+│   └── preprocessing.py
+├── bot.py
+├── model.pkl
+├── requirements.txt
+├── Dockerfile
+└── .env 
