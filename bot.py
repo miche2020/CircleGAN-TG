@@ -1,5 +1,4 @@
 import logging
-import pickle
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.utils import executor
@@ -8,6 +7,10 @@ import os
 from utils.preprocessing import preprocess_image, tensor_to_image
 import torch
 from PIL import Image
+import io
+import numpy as np
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from model.model import Model, VGGEncoder, RC, Decoder 
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -21,96 +24,196 @@ storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
 # Загружаем модель
-with open('model.pkl', 'rb') as file:
-    model = pickle.load(file)
+model = torch.load('./model.pth', map_location=torch.device('cpu'))
+model.eval()
 
-# Добавим словарь для хранения изображений пользователей
+# Словарь для хранения изображений пользователей
 user_images = {}
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
-    await message.reply("Привет! Я бот с вашей моделью. Отправьте мне данные для анализа.")
+    welcome_text = """
+    Привет! Я бот для переноса стиля. Вот мои команды:
+    
+    /start - показать это сообщение
+    /help - показать это сообщение
+    /check - проверить загруженные изображения
+    /clear - очистить загруженные изображения
+    
+    Чтобы начать, отправьте мне два изображения:
+    1. Изображение контента (то, что хотите стилизовать)
+    2. Изображение стиля (откуда брать стиль)
+    """
+    await message.reply(welcome_text)
 
-@dp.message_handler()
-async def process_message(message: types.Message):
-    try:
-        # Здесь нужно добавить предобработку входных данных в соответствии с вашей моделью
-        input_data = message.text  # Преобразуйте текст в формат, который ожидает ваша модель
-        
-        # Получаем предсказание модели
-        prediction = model.predict([input_data])  # Измените в соответствии с вашей моделью
-        
-        # Отправляем результат пользователю
-        await message.reply(f"Результат анализа: {prediction}")
-        
-    except Exception as e:
-        await message.reply(f"Произошла ошибка при обработке данных: {str(e)}")
+@dp.message_handler(commands=['clear'])
+async def clear_images(message: types.Message):
+    user_id = message.from_user.id
+    if user_id in user_images:
+        user_images[user_id] = {}
+        await message.reply("✨ Все изображения очищены. Можете начать заново!")
+    else:
+        await message.reply("У вас нет загруженных изображений.")
 
-@dp.message_handler(commands=['style'])
-async def start_style_transfer(message: types.Message):
-    await message.reply("Пожалуйста, отправьте контентное изображение")
-    user_images[message.from_user.id] = {'state': 'waiting_content'}
+@dp.message_handler(commands=['check'])
+async def check_images(message: types.Message):
+    user_id = message.from_user.id
+    if user_id not in user_images:
+        await message.reply("У вас пока нет загруженных изображений.")
+        return
+
+    status = "Статус загруженных изображений:\n"
+    if 'content' in user_images[user_id]:
+        status += "✅ Изображение контента загружено\n"
+    else:
+        status += "❌ Изображение контента не загружено\n"
+        
+    if 'style' in user_images[user_id]:
+        status += "✅ Изображение стиля загружено\n"
+    else:
+        status += "❌ Изображение стиля не загружено\n"
+        
+    await message.reply(status)
 
 @dp.message_handler(content_types=['photo'])
-async def process_photo(message: types.Message):
+async def handle_photo(message: types.Message):
     try:
         user_id = message.from_user.id
-        
-        if user_id not in user_images or user_images[user_id].get('state') not in ['waiting_content', 'waiting_style']:
-            await message.reply("Пожалуйста, начните процесс командой /style")
-            return
-
-        # Получаем файл
         photo = message.photo[-1]
-        file_id = photo.file_id
-        file = await bot.get_file(file_id)
-        file_path = file.file_path
-
-        # Формируем имя временного файла
-        temp_filename = f'temp_{user_id}_{user_images[user_id]["state"]}.jpg'
         
-        # Скачиваем файл
-        await bot.download_file(file_path, temp_filename)
+        # Получаем и скачиваем файл
+        file = await bot.get_file(photo.file_id)
+        downloaded_file = await bot.download_file(file.file_path)
         
-        # Обрабатываем в зависимости от состояния
-        if user_images[user_id]['state'] == 'waiting_content':
-            user_images[user_id]['content'] = preprocess_image(temp_filename)
-            user_images[user_id]['state'] = 'waiting_style'
-            await message.reply("Отлично! Теперь отправьте стилевое изображение")
+        # Создаем BytesIO объект из скачанных данных
+        image_bytes = io.BytesIO(downloaded_file.read())
         
-        elif user_images[user_id]['state'] == 'waiting_style':
-            user_images[user_id]['style'] = preprocess_image(temp_filename)
+        try:
+            # Преобразуем изображение
+            processed_image = preprocess_image(image_bytes)
             
-            # Генерируем результат
-            with torch.no_grad():
-                output = model.generate(
-                    user_images[user_id]['content'],
-                    user_images[user_id]['style'],
-                    1.5
+            # Инициализируем словарь пользователя
+            if user_id not in user_images:
+                user_images[user_id] = {}
+            
+            # Определяем тип изображения
+            if 'content' not in user_images[user_id]:
+                user_images[user_id]['content'] = processed_image
+                await message.reply("✅ Изображение контента сохранено!\nТеперь отправьте изображение стиля.")
+            
+            elif 'style' not in user_images[user_id]:
+                user_images[user_id]['style'] = processed_image
+                keyboard = InlineKeyboardMarkup(row_width=1)
+                keyboard.add(
+                    InlineKeyboardButton("🔅 Низкая (0.5)", callback_data=f"style_0.5_{user_id}"),
+                    InlineKeyboardButton("✨ Средняя (1.0)", callback_data=f"style_1.0_{user_id}"),
+                    InlineKeyboardButton("💫 Высокая (4.0)", callback_data=f"style_4.0_{user_id}")
                 )
+                await message.reply("✅ Изображение стиля сохранено!\nВыберите степень стилизации:", reply_markup=keyboard)
             
-            # Сохраняем результат
-            result_image = tensor_to_image(output)
-            result_filename = f'result_{user_id}.jpg'
-            Image.fromarray((result_image * 255).astype('uint8')).save(result_filename)
+            else:
+                keyboard = InlineKeyboardMarkup()
+                keyboard.add(InlineKeyboardButton("🔄 Начать заново", callback_data=f"clear_{user_id}"))
+                await message.reply(
+                    "У вас уже загружены оба изображения!\n"
+                    "Нажмите кнопку ниже, чтобы начать заново:",
+                    reply_markup=keyboard
+                )
+                
+        except Exception as img_error:
+            logging.error(f"Ошибка обработки изображения: {str(img_error)}")
+            await message.reply("❌ Не удалось обработать изображение. Попробуйте другое изображение.")
+            return
+            
+    except Exception as e:
+        logging.error(f"Ошибка при обработке фото: {str(e)}")
+        await message.reply("❌ Произошла ошибка при обработке изображения.")
+
+@dp.callback_query_handler(lambda c: c.data.startswith('style_'))
+async def process_style_transfer(callback_query: types.CallbackQuery):
+    try:
+        parts = callback_query.data.split('_')
+        alpha = float(parts[1])
+        user_id = int(parts[2])
+        
+        if user_id not in user_images or 'content' not in user_images[user_id] or 'style' not in user_images[user_id]:
+            await callback_query.message.answer("❌ Ошибка: изображения не найдены")
+            return
+            
+        await callback_query.message.answer("🎨 Начинаю обработку...")
+        
+        # Генерируем изображение
+        with torch.no_grad():
+            output = model.generate(
+                user_images[user_id]['content'],
+                user_images[user_id]['style'],
+                alpha=alpha
+            )
+            
+            # Преобразуем в изображение
+            output_array = tensor_to_image(output)
+            output_image = Image.fromarray((output_array * 255).astype(np.uint8))
+            
+            # Сохраняем в буфер
+            img_bio = io.BytesIO()
+            output_image.save(img_bio, 'JPEG')
+            img_bio.seek(0)
+            
+            # Создаем клавиатуру
+            keyboard = InlineKeyboardMarkup(row_width=1)
+            keyboard.add(
+                InlineKeyboardButton("🔄 Начать заново", callback_data=f"clear_{user_id}"),
+                InlineKeyboardButton("🎨 Другая степень", callback_data=f"retry_{user_id}")
+            )
             
             # Отправляем результат
-            with open(result_filename, 'rb') as photo:
-                await message.reply_photo(photo)
+            await callback_query.message.answer_photo(
+                photo=img_bio,
+                caption=f"✨ Готово! Степень стилизации: {'низкая' if alpha == 0.5 else 'средняя' if alpha == 1.0 else 'высокая'}",
+                reply_markup=keyboard
+            )
             
-            # Очищаем временные файлы и данные
-            for filename in [f'temp_{user_id}_waiting_content.jpg', 
-                           f'temp_{user_id}_waiting_style.jpg',
-                           result_filename]:
-                if os.path.exists(filename):
-                    os.remove(filename)
-            
-            del user_images[user_id]
+    except Exception as e:
+        logging.error(f"Ошибка при обработке: {str(e)}")
+        await callback_query.message.answer(f"❌ Ошибка при обработке: {str(e)}")
+
+@dp.callback_query_handler(lambda c: c.data.startswith('clear_'))
+async def clear_images_callback(callback_query: types.CallbackQuery):
+    try:
+        _, user_id = callback_query.data.split('_')
+        user_id = int(user_id)
+        
+        if user_id in user_images:
+            user_images[user_id] = {}
+            await callback_query.message.answer(
+                "✨ Все изображения очищены!\n"
+                "1. Отправьте изображение контента\n"
+                "2. Затем отправьте изображение стиля"
+            )
+        await callback_query.answer()
         
     except Exception as e:
-        await message.reply(f"Произошла ошибка при обработке изображения: {str(e)}")
-        if user_id in user_images:
-            del user_images[user_id]
+        logging.error(f"Ошибка при очистке: {str(e)}")
+        await callback_query.message.answer("❌ Произошла ошибка при очистке изображений.")
+
+@dp.callback_query_handler(lambda c: c.data.startswith('retry_'))
+async def retry_style_transfer(callback_query: types.CallbackQuery):
+    try:
+        _, user_id = callback_query.data.split('_')
+        user_id = int(user_id)
+        
+        keyboard = InlineKeyboardMarkup(row_width=1)
+        keyboard.add(
+            InlineKeyboardButton("🔅 Низкая (0.5)", callback_data=f"style_0.5_{user_id}"),
+            InlineKeyboardButton("✨ Средняя (1.0)", callback_data=f"style_1.0_{user_id}"),
+            InlineKeyboardButton("💫 Высокая (4.0)", callback_data=f"style_4.0_{user_id}")
+        )
+        
+        await callback_query.message.answer("Выберите новую степень стилизации:", reply_markup=keyboard)
+        
+    except Exception as e:
+        logging.error(f"Ошибка: {str(e)}")
+        await callback_query.message.answer("❌ Произошла ошибка")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True) 

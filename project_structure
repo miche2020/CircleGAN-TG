@@ -1,9 +1,19 @@
 project/
+├── bot/
+│   ├── __init__.py
+│   ├── handlers/
+│   │   ├── __init__.py
+│   │   ├── commands.py      # Обработчики команд (/start, /help, /clear, /check)
+│   │   ├── images.py        # Обработка изображений
+│   │   └── callbacks.py     # Обработчики callback'ов
+│   ├── keyboards.py         # Клавиатуры и кнопки
+│   └── states.py           # Состояния FSM (если понадобятся)
+├── models/
+│   ├── __init__.py
+│   ├── model.pth          # Сама модель
+│   └── model_handler.py   # Класс для работы с моделью
 ├── utils/
 │   ├── __init__.py
 │   └── preprocessing.py
-├── bot.py
-├── model.pkl
-├── requirements.txt
-├── Dockerfile
-└── .env 
+├── config.py               # Конфигурация (токены, пути и т.д.)
+└── main.py                # Точка входаа
