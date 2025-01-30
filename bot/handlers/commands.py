@@ -1,5 +1,6 @@
 from aiogram import types
 from bot.keyboards import get_restart_keyboard
+from aiogram.types import BotCommand
 
 async def cmd_start(message: types.Message):
     welcome_text = """
@@ -45,3 +46,12 @@ async def cmd_check(message: types.Message, user_images: dict):
         status += "❌ Изображение стиля не загружено\n"
         
     await message.reply(status)
+
+async def set_commands(bot):
+    commands = [
+        BotCommand(command="/start", description="Запустить бота"),
+        BotCommand(command="/help", description="Помощь по использованию"),
+        BotCommand(command="/style", description="Начать перенос стиля"),
+        BotCommand(command="/cancel", description="Отменить текущую операцию")
+    ]
+    await bot.set_my_commands(commands)

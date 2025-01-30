@@ -10,7 +10,8 @@ from PIL import Image
 import io
 import numpy as np
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from model.model import Model, VGGEncoder, RC, Decoder 
+from models.model_handler import StyleTransferModel
+from config import MODEL_PATH
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -23,9 +24,9 @@ bot = Bot(token=os.getenv('BOT_TOKEN'))
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-# Загружаем модель
-model = torch.load('./model.pth', map_location=torch.device('cpu'))
-model.eval()
+# Инициализируем обработчик модели
+model_handler = StyleTransferModel(MODEL_PATH)
+model = model_handler.model
 
 # Словарь для хранения изображений пользователей
 user_images = {}

@@ -17,6 +17,10 @@ if not BOT_TOKEN:
 # Пути к файлам
 MODEL_PATH = MODELS_DIR / 'model.pth'
 
+# Проверяем существование файла
+if not MODEL_PATH.exists():
+    raise FileNotFoundError(f"Файл модели не найден по пути: {MODEL_PATH}")
+
 # Настройки изображений
 MIN_IMAGE_SIZE = 32
 MAX_IMAGE_SIZE = 2048

@@ -5,6 +5,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from config import BOT_TOKEN, MODEL_PATH, LOG_LEVEL
 from models.model_handler import StyleTransferModel
 from bot.handlers import commands, images, callbacks
+from bot.handlers.commands import set_commands
 
 # Настраиваем логирование
 logging.basicConfig(
@@ -18,9 +19,10 @@ bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
+# Загружаем модель
 try:
-    # Инициализируем модель
-    model = StyleTransferModel(MODEL_PATH)
+    model_handler = StyleTransferModel(MODEL_PATH)
+    model = model_handler.model
     logger.info("Модель успешно инициализирована")
 except Exception as e:
     logger.error(f"Ошибка при инициализации модели: {str(e)}")
@@ -58,6 +60,9 @@ def register_handlers(dp: Dispatcher):
 
 async def on_startup(dp: Dispatcher):
     """Действия при запуске бота"""
+    # Устанавливаем команды бота
+    await set_commands(dp.bot)
+    # Логируем, что бот запущен
     logger.info("Бот запущен")
 
 async def on_shutdown(dp: Dispatcher):
