@@ -1,9 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+config.py
+models/*.pth
+*.log
+
+# Docker
+.docker/
+
 node_modules/
 .env
 .DS_Store
-*.log
-*.pkl
-venv/
-__pycache__/
-.docker/
-docker-compose.override.yml 
+# *.pkl
+docker-compose.override.yml
+
+# Environment variables
+.env 

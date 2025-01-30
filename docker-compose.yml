@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: style-transfer-bot
+    restart: always
+    volumes:
+      - ./models:/app/models
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Moscow 

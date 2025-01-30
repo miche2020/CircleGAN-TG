@@ -1,13 +1,21 @@
-FROM python:3.9-slim
+FROM python:3.8-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
-COPY model.pkl .
-COPY bot.py .
-COPY .env .
-COPY utils/ ./utils/
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "bot.py"] 
+RUN mkdir -p models
+
+COPY bot/ bot/
+COPY utils/ utils/
+COPY main.py .
+COPY config.py .
+
+CMD ["python", "main.py"] 

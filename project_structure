@@ -1,19 +1,26 @@
-project/
-├── bot/
+CircleGAN-TG/
+├── .gitignore               # Файл для игнорирования файлов Git
+├── Dockerfile              # Конфигурация Docker контейнера
+├── bot.py                  # Основной файл бота (устаревший)
+├── main.py                 # Новый основной файл бота
+├── config.py              # Конфигурационные параметры (токены, настройки)
+├── requirements.txt       # Зависимости проекта
+│
+├── bot/                   # Пакет с логикой бота
 │   ├── __init__.py
-│   ├── handlers/
-│   │   ├── __init__.py
-│   │   ├── commands.py      # Обработчики команд (/start, /help, /clear, /check)
-│   │   ├── images.py        # Обработка изображений
-│   │   └── callbacks.py     # Обработчики callback'ов
-│   ├── keyboards.py         # Клавиатуры и кнопки
-│   └── states.py           # Состояния FSM (если понадобятся)
-├── models/
+│   ├── keyboards.py       # Клавиатуры и кнопки
+│   └── handlers/         # Обработчики сообщений
+│       ├── __init__.py
+│       ├── commands.py   # Обработчики команд
+│       ├── callbacks.py  # Обработчики callback-запросов
+│       └── images.py     # Обработчики изображений
+│
+├── models/               # Пакет с моделью нейронной сети
 │   ├── __init__.py
-│   ├── model.pth          # Сама модель
-│   └── model_handler.py   # Класс для работы с моделью
-├── utils/
-│   ├── __init__.py
-│   └── preprocessing.py
-├── config.py               # Конфигурация (токены, пути и т.д.)
-└── main.py                # Точка входаа
+│   ├── model.pth        # Веса модели
+│   ├── model_classes.py # Классы модели
+│   └── model_handler.py # Обработчик модели
+│
+└── utils/               # Вспомогательные утилиты
+    ├── __init__.py
+    └── preprocessing.py # Предобработка данных

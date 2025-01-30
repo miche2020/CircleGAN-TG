@@ -1,16 +1,17 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Базовые пути
 BASE_DIR = Path(__file__).parent
 MODELS_DIR = BASE_DIR / 'models'
 
-# Загружаем переменные окружения
-from dotenv import load_dotenv
+# Загружаем переменные окружения из файла .env
 load_dotenv()
 
-# Настройки бота
+# Получаем токен бота из переменных окружения
 BOT_TOKEN = os.getenv('BOT_TOKEN')
+
 if not BOT_TOKEN:
     raise ValueError("Не задан токен бота в переменных окружения")
 
