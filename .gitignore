@@ -39,7 +39,6 @@ models/*.pth
 .docker/
 
 node_modules/
-.env
 .DS_Store
 # *.pkl
 docker-compose.override.yml
